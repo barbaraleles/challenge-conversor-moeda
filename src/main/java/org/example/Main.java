@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Map;
 import java.util.Scanner;
 
 
@@ -28,6 +29,28 @@ public class Main {
         Gson gson = new Gson();
         ExchangeResponse exchange = gson.fromJson(response.body(), ExchangeResponse.class);
 
+        // Filtra as moedas permitidas da resposta
+        Map<String, Double> taxasFiltradas = CurrencyFilter.filtrarMoedas(exchange.conversion_rates);
+
+        // Exibe as cotações filtradas
+        System.out.println("Cotações disponíveis com base no Dólar (USD):");
+        for (String moeda : CurrencyFilter.getMoedasPermitidas()) {
+            if (taxasFiltradas.containsKey(moeda)) {
+                System.out.printf("1 USD = %.2f %s (%s)%n", taxasFiltradas.get(moeda), moeda, CurrencyFilter.getNomeMoeda(moeda));
+            }
+        }
+        System.out.println();
+
+        // Opções do menu com pares de moedas (origem, destino)
+        Map<Integer, String[]> opcoes = Map.of(
+                1, new String[]{"USD", "ARS"},
+                2, new String[]{"ARS", "USD"},
+                3, new String[]{"USD", "BRL"},
+                4, new String[]{"BRL", "USD"},
+                5, new String[]{"USD", "COP"},
+                6, new String[]{"COP", "USD"}
+        );
+
         while (true) {
             System.out.println(" *********************************************** ");
             System.out.println(" Seja bem vindo ao conversor de moedas! ");
@@ -49,41 +72,31 @@ public class Main {
                 return;
             }
 
+            if (!opcoes.containsKey(opcao)) {
+                System.out.println("Opção inválida!");
+                System.out.println();
+                continue;
+            }
+
             System.out.print("Digite o valor que deseja converter: ");
             double valor = leia.nextDouble();
 
-            double resultado = 0;
+            String from = opcoes.get(opcao)[0];
+            String to = opcoes.get(opcao)[1];
 
-            switch (opcao) {
-                case 1: // USD → ARS
-                    resultado = valor * exchange.conversion_rates.get("ARS");
-                    System.out.printf("%.2f dólares equivalem a %.2f pesos argentinos.%n", valor, resultado);
-                    break;
-                case 2: // ARS → USD
-                    resultado = valor / exchange.conversion_rates.get("ARS");
-                    System.out.printf("%.2f pesos argentinos equivalem a %.2f dólares.%n", valor, resultado);
-                    break;
-                case 3: // USD → BRL
-                    resultado = valor * exchange.conversion_rates.get("BRL");
-                    System.out.printf("%.2f dólares equivalem a %.2f reais.%n", valor, resultado);
-                    break;
-                case 4: // BRL → USD
-                    resultado = valor / exchange.conversion_rates.get("BRL");
-                    System.out.printf("%.2f reais equivalem a %.2f dólares.%n", valor, resultado);
-                    break;
-                case 5: // USD → COP
-                    resultado = valor * exchange.conversion_rates.get("COP");
-                    System.out.printf("%.2f dólares equivalem a %.2f pesos colombianos.%n", valor, resultado);
-                    break;
-                case 6: // COP → USD
-                    resultado = valor / exchange.conversion_rates.get("COP");
-                    System.out.printf("%.2f pesos colombianos equivalem a %.2f dólares.%n", valor, resultado);
-                    break;
-                default:
-                    System.out.println("Opção inválida!");
-            }
+            // Obtém taxas usando o filtro (taxas das moedas permitidas)
+            double taxaFrom = taxasFiltradas.get(from);
+            double taxaTo = taxasFiltradas.get(to);
 
-            System.out.println(); // quebra de linha entre repetições
+            // Converte o valor via USD intermediário para precisão
+            double valorEmUSD = valor / taxaFrom;
+            double resultado = valorEmUSD * taxaTo;
+
+            System.out.printf("%.2f %s (%s) equivalem a %.2f %s (%s).%n",
+                    valor, from, CurrencyFilter.getNomeMoeda(from),
+                    resultado, to, CurrencyFilter.getNomeMoeda(to));
+
+            System.out.println();
         }
 
     }
